@@ -39,6 +39,24 @@ sample_rankings = simulated_data(candidates, support)
 posterior = dirichlet_posterior(sample_rankings, candidates)
 
 library(MCMCpack)
-sample_polls <- rdirichlet(10000, posterior)
-colnames(sample_polls) <- names(posterior)
+# Sample 10,000 probability distributions using posterior
+sample_polls = rdirichlet(10000, posterior)
+colnames(sample_polls) = names(posterior)
+
+# Sample 10,000 rankings using each probability distribution
+# and count occurrences of each ranking for each sampling.
+counts = t(apply(sample_polls, 1, function(p) {
+  as.vector(rmultinom(1, size = 10000, prob = p))
+}))
+colnames(counts) = names(posterior)
+head(counts)
+
+# Simulate first round of rcv
+first_rank = substr(colnames(counts), 1, 1)
+counts_grouped <- t(apply(counts, 1, function(row) {
+  tapply(row, first_rank, sum)
+}))
+counts_grouped <- counts_grouped[, c("A", "B", "C", "D")]
+
+head(counts_grouped)
 
