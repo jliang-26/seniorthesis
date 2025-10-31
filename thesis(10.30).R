@@ -1,10 +1,11 @@
 library(MCMCpack)
+library(combinat)
 set.seed(67)
 
-# Function 1: Simulate a poll of "sample_size" # of rankings for "candidates" by assigning a 
-# probability of "support" to each candidate.  
+# Function 1: Simulate a poll of sample_size # of rankings for candidates by assigning a 
+# probability of support to each candidate.  
 simulated_data = function(candidates, support, sample_size){
-  sample_rankings = matrix(NA, nrow = (sample_size), ncol = length(candidates))
+  sample_rankings = matrix(NA, nrow = sample_size, ncol = length(candidates))
   for (i in 1:sample_size){
     sample_rankings[i, ] = sample(candidates, size = length(candidates), replace = FALSE, prob = support)
   }
@@ -12,38 +13,29 @@ simulated_data = function(candidates, support, sample_size){
   sample_rankings
 }
 
-# Function 2: Compute parameters of the Dirichlet Posterior using "sample_rankings"
+# Function 2: Compute parameters of the Dirichlet Posterior using sample_rankings
 dirichlet_posterior = function(sample_rankings, candidates) {
   n = factorial(length(candidates))
+  
+  #Generate all possible rankings. Account for the possibility that a ranking isn't present in sample_rankings.
+  all_rankings = sapply(permn(candidates), paste, collapse = "-")
+  
   # Count occurrences of each ranking as a table of unique rankings.
   df = as.data.frame(sample_rankings)
   strings = apply(df, 1, paste, collapse = "-")
-  sequences = sort(unique(strings))
-  counts = table(factor(strings, levels = sequences))
+  counts = table(factor(strings, levels = all_rankings))
   
   # Compute posterior
   alpha_prior = rep(1, n)
   alpha_post = alpha_prior + as.numeric(counts)
   
-  names(alpha_post) = sequences
+  names(alpha_post) = all_rankings
   
   alpha_post
 }
 
-
-## TEST CODE
-#candidates = c(1, 2, 3, 4)
-#support = c(.31, .28, .25, .16)
-#sample_size = 500
-#sample_rankings = simulated_data(candidates, support, sample_size)
-
-#posterior = dirichlet_posterior(sample_rankings, candidates)
-#sample_probs = rdirichlet(sample_size, posterior)
-#colnames(sample_probs) = names(posterior)
-## TEST CODE
-
 # Function 3: Simulates RCV. Function takes set of unique rankings and probabilities from 
-# "sample_probs" and number of candidates from "candidates"
+# sample_probs and number of candidates from candidates
 run_rcv = function(sample_probs, candidates) {
   c = length(candidates)
   p = ncol(sample_probs)
@@ -88,7 +80,7 @@ run_rcv = function(sample_probs, candidates) {
     }
     winner[r] = which.max(tally)
   }
-  #Returns the "sample_size" # winners.
+  #Returns the sample_size # winners.
   winner
 }
 
@@ -107,8 +99,8 @@ bayes_rcv_sim = function(candidates, support, sample_size) {
   # Run RCV on probability distributions using function 3.
   winners = run_rcv(sample_probs, candidates)
   
-  #Report winners by percent and count.
-  counts <- table(winners)
+  #Report winners by percent and count. Green out before running loop in line 120. 
+  counts = table(winners)
   for (i in names(counts)) {
     cat("Candidate", i, "wins", counts[i], "times", "(", round(counts[i]/sample_size*100), "%)\n")
   }
@@ -118,11 +110,23 @@ bayes_rcv_sim = function(candidates, support, sample_size) {
 # Set candidates, their support, and the poll sample size. 
 candidates = c(1, 2, 3, 4)
 support = c(.31, .28, .25, .16)
+#support = c(.49, .2, .2, .11)
 sample_size = 500
 
 #Run this to get results.
 winners = bayes_rcv_sim(candidates, support, sample_size)
 
 
+#Run winners function 500 times:
+results = matrix(0, nrow = 500, ncol = 4)
+colnames(results) = paste0("P", 1:4)
+for (i in 1:500) {
+  winners = bayes_rcv_sim(candidates, support, sample_size)
+  counts = table(factor(winners, levels = 1:4))
+  results[i, ] = (counts/length(winners))  
+}
+
+head(results)
+colMeans(results)
 
 
