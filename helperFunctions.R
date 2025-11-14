@@ -1,12 +1,13 @@
-# Function 1: Simulate a poll of sample_size # of rankings for candidates by assigning a 
-# probability of support to each candidate.  
-simulated_data = function(candidates, support, sample_size){
-  sample_rankings = matrix(NA, nrow = sample_size, ncol = length(candidates))
-  for (i in 1:sample_size){
-    sample_rankings[i, ] = sample(candidates, size = length(candidates), replace = FALSE, prob = support)
-  }
-  
-  sample_rankings
+set.seed(67)
+library(MCMCpack)
+library(combinat)
+source("constants.R")
+source("helperFunctions.R")
+
+# Function 1: draw sample_size rankings from samplePopulation
+poll_rankings <- function(populationSize, sample_size, samplePopulation) {
+  colIndices <- sample(populationSize, size = sample_size, replace = FALSE)
+  sample_rankings <- samplePopulation[,colIndices]
 }
 
 # Function 2: Compute parameters of the Dirichlet Posterior using sample_rankings
