@@ -1,13 +1,24 @@
+set.seed(67)
 library(MCMCpack)
 library(combinat)
-set.seed(67)
+source("constants.R")
+source("helperFunctions.R")
+
+
+#Generate a simple population of size 100k based on support
+samplePopulation <- sapply(1:populationSize, function(i) {
+  sample(candidates, size = length(candidates), replace = FALSE, prob = support)
+})
+
+#Poll sample_size rankings from samplePopulation, repeat pollCount number of times
+polls <- replicate(pollCount, poll_rankings(populationSize, sample_size, samplePopulation))
 
 
 #Overall function based on candidates, support, and sample size. 
 bayes_rcv_sim = function(candidates, support, sample_size) {
   
   # Simulate rankings and compute a Dirichlet Posterior using functions 1 & 2.
-  sample_rankings = simulated_data(candidates, support, sample_size)
+  sample_rankings = poll_rankings(candidates, support, sample_size)
   
   posterior = dirichlet_posterior(sample_rankings, candidates)
   
@@ -25,12 +36,6 @@ bayes_rcv_sim = function(candidates, support, sample_size) {
   }
   winners
 }
-
-# Set candidates, their support, and the poll sample size. 
-candidates = c(1, 2, 3, 4)
-support = c(.31, .28, .25, .16)
-#support = c(.49, .2, .2, .11)
-sample_size = 500
 
 #Run this to get results.
 winners = bayes_rcv_sim(candidates, support, sample_size)
