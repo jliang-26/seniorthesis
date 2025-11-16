@@ -1,1 +1,1 @@
-Senior Thesis Github Repo
+Senior Thesis Repository
