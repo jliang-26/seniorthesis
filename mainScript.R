@@ -1,7 +1,6 @@
 source("constants.R")
 source("helperFunctions.R")
 
-
 #Step one: Generate a simple population of size 100k based on support
 samplePopulation <- sapply(1:populationSize, function(i) {
   sample(candidates, size = length(candidates), replace = FALSE, prob = support)
@@ -23,7 +22,14 @@ for (i in 1:pollCount) {
   rcvOutputs[[i]] <- run_rcv(posteriorProbs[[i]], candidates)
 }
 
-#Step five: interpret RCV results.
-allWinners <- collectWinners(rcvOutputs)
-roundInfo <- lapply(rcvOutputs, function(x) x[[2]])
+#Step five: gather RCV results.
 
+#Each column of pollWins gives the candidate win percentages for one poll. 
+#allWins gives the win percentages over the entire simulation (all polls).
+pollWins <- winPercents(rcvOutputs)[[1]]
+allWins <- winPercents(rcvOutputs)[[2]]
+
+#roundInfo has the candidate vote tallies for each round of each sample of each poll
+#for the entire simulation. roundInfo[[k][i,,j] gives the candidate votes for 
+#the ith round of the jth sample of the kth poll.
+roundInfo <- lapply(rcvOutputs, function(x) x[[2]])

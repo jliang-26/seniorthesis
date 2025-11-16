@@ -60,6 +60,13 @@ run_rcv = function(sample_probs, candidates) {
     paste0("Poll ", 1:probs_size)
   )
   
+  rcvData <- array(0, dim = c(candidatesNum-1,candidatesNum,probs_size))
+  dimnames(rcvData) <- list(
+    paste0("Round ", 1:(candidatesNum-1)), 
+    paste0("Candidate ", 1:candidatesNum),
+    paste0("Poll ", 1:probs_size)
+  )
+  
   #Begin rounds
   for (r in 1:n) {
     tally = rep(0, c)
@@ -82,9 +89,9 @@ run_rcv = function(sample_probs, candidates) {
     while (all(tally < 0.5)) {
       #Find the candidate with least votes for elimination
       m = which.min(abs(tally))
-      #Store the eliminated candidate plus their support in rcvData
-      rcvData[roundNum, 1, r] = m
-      rcvData[roundNum, 2, r] = min(abs(tally))
+      #Store the round results in rcvData
+      rcvData[roundNum, ,r] <- tally
+      rcvData[roundNum, ,r][rcvData[roundNum, ,r] == -2] <- 0
       
       #Track the round number for rcvData
       roundNum <- roundNum + 1
@@ -107,8 +114,8 @@ run_rcv = function(sample_probs, candidates) {
       }
     }
     winner[r] = which.max(tally)
-    rcvData[roundNum,3,r] = which.max(tally)
-    rcvData[roundNum,4,r] = max(tally)
+    rcvData[roundNum, ,r] <- tally
+    rcvData[roundNum, ,r][rcvData[roundNum, ,r] == -2] <- 0
   }
   return(list(winner, rcvData))
 }
@@ -122,4 +129,23 @@ collectWinners <- function(rcvOutputs) {
     winnersRecord[i,] <- rcvOutputs[[i]][[1]]
   }
   winnersRecord
+}
+
+#Function 6: extract rcv win percent data.
+winPercents <- function(rcvOutputs) {
+  allWinners <- collectWinners(rcvOutputs)
+  #Win percentage for each poll
+  pollWins <- matrix(0, nrow = candidatesNum, ncol = pollCount, 
+                     dimnames = list(paste0("Candidate ", 1:candidatesNum),
+                                     paste0("Poll ", 1:pollCount)))
+  for (i in 1:pollCount) {
+    holder <- table(allWinners[i,])
+    for (j in 1:length(holder)) {
+      pollWins[j,i] <- holder[j]/sum(table(allWinners[i,]))
+    }
+  }
+  #Average over all polls to find win percentage overall.
+  allWins <- rowMeans(sampleWins)
+  
+  return(list(pollWins, allWins))
 }
