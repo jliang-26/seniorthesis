@@ -1,10 +1,11 @@
 source("constants.R")
 source("helperFunctions.R")
 
-#Step one: Generate a simple population of size 100k based on support
+#Step one: Generate a simple population of size 100k and compute real winner.
 samplePopulation <- sapply(1:populationSize, function(i) {
   sample(candidates, size = length(candidates), replace = FALSE, prob = support)
 })
+populationWinner <- realWinner(samplePopulation, candidates)
 
 #Step two: Poll sample_size rankings from samplePopulation, repeat pollCount number of times
 polls <- replicate(pollCount, poll_rankings(populationSize, sample_size, samplePopulation))

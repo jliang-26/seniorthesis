@@ -53,18 +53,11 @@ run_rcv = function(sample_probs, candidates) {
   
   #Create the RCV data matrix. This stores information about candidate elims, 
   #votes at elim, and winner's votes
-  rcvData <- array(0, dim = c(candidatesNum-1,4,probs_size))
-  dimnames(rcvData) <- list(
-    paste0("Round ", 1:(candidatesNum-1)), 
-    c("eliminatedCandidate", "eVotes", "winningCandidate", "wVotes"),
-    paste0("Poll ", 1:probs_size)
-  )
-  
-  rcvData <- array(0, dim = c(candidatesNum-1,candidatesNum,probs_size))
+  rcvData <- array(0, dim = c(candidatesNum-1,candidatesNum,n))
   dimnames(rcvData) <- list(
     paste0("Round ", 1:(candidatesNum-1)), 
     paste0("Candidate ", 1:candidatesNum),
-    paste0("Poll ", 1:probs_size)
+    paste0("Poll ", 1:n)
   )
   
   #Begin rounds
@@ -148,4 +141,19 @@ winPercents <- function(rcvOutputs) {
   allWins <- rowMeans(sampleWins)
   
   return(list(pollWins, allWins))
+}
+
+#Function 7: compute real population winner
+realWinner <- function(samplePopulation, candidates) {
+  n = factorial(length(candidates))
+  
+  #Generate all possible rankings. Account for the possibility that a ranking isn't present in sample_rankings.
+  all_rankings = sapply(permn(candidates), paste, collapse = "-")
+  
+  # Count occurrences of each ranking.
+  rankings = apply(samplePopulation, 2, paste, collapse = "-")
+  counts = t(as.matrix(table(factor(rankings, levels = all_rankings))))
+  
+  poprankTally <- tallyRanking(samplePopulation, candidates)/populationSize
+  populationWinner <- run_rcv(poprankTally, candidates)
 }
