@@ -1,13 +1,22 @@
 source("constants.R")
 source("helperFunctions.R")
 
+# Adding weights vs adding 1.
+# My data output: named list of all 500 runs, transpose rows sand columns.
+
 raw_data <- read.csv("Datasets/dfp_nyc_pre_election_2021_final_v2_e5_0020040_micro.csv")
 
 posterior <- preprocess_dfp(raw_data)
 
+# Probs is a 500 x 807 matrix. Each row corresponds to one sample of 
+# probabilities from the Dirichlet posterior given the 807 unique rankings
 probs <- sample_probs(probs_size = probs_size, posterior = posterior)
 
 rcvOutputs <- run_rcv(sample_probs = probs, candidates = candidates)
+
+# Sort 
+sorted_weighted_rankings <- culled_weighted_sum_rankings %>%
+  arrange(desc(total))
 
 # Ignore below, just all potentially helpful columns of poll.
 #"rank_preference_1"                                                                                               

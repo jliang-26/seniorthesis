@@ -49,18 +49,19 @@ sample_probs <- function(probs_size, posterior) {
 }
 
 # Function 4: Simulates RCV.
-
-# The assumption now is that we only have full rankings. Must account for
-# partial rankings too. 
 run_rcv = function(sample_probs, candidates) {
+  # c is the number of candidates (8)
   c = length(candidates)
+  # p is the number of unique rankings (807)
   p = ncol(sample_probs)
+  # n is the number of samplings (500)
   n = nrow(sample_probs)
-  winner = rep(0, n)
+  # this stores the RCV winner for each sampling
+  winner = rep(NA, n)
   
-  # Create the Rankings Matrix. Each column is one unique ballot ranking from the
-  # sample_probs, including all unique rankings from the poll. Empty spots are 0s.
-  orderings = colnames(sample_probs)
+  # Create the c x p Rankings Matrix which vectorizes each unique ranking
+  # from sample_probsl. Empty spots on a ranking are stored as zeroes.
+  orderings <- colnames(sample_probs)
   
   split_rankings <- strsplit(orderings, "-")
   
@@ -82,59 +83,65 @@ run_rcv = function(sample_probs, candidates) {
   
   #Begin rounds
   for (r in 1:n) {
+    # tally gives the total support for each candidate.
     tally = rep(0, c)
-    #Create the elimination matrix.
+    # Create an indicator matrix which tracks eliminations corresponding in
+    # size to the RCV matrix. Entries associated with eliminated candidates
+    # will be replaced with 1s.
     elimTracker <- matrix(0, nrow = c , ncol = p)
-    # Put .1 in elimTracker for all the places in RCV == 0 to skip them.
-    elimTracker[RCV == 0] <- 0.1
-    #Track all losers.
+    # Put 1 in elimTracker for all the places in RCV == 0 to skip them.
+    # RCV == 0 for incomplete rankings Ex: if only ranking one candidate,
+    # the next 7 spots will be empty meaning RCV == 0.
+    elimTracker[RCV == 0] <- 1
+    
+    # Track all losers.
     loserTracker <- rep(0, c)
     
-    #Bring probabilities into RCV calculator
-    probs = sample_probs[r, ]
+    # Bring probabilities into RCV calculator
+    probs <- sample_probs[r, ]
     
-    #Tally round 1
+    #Tally round 1 support totals
     roundNum <- 1
+    # For each unique ranking, add the support for the top-ranked candidate
+    # to the tally.
     for (i in 1:p) {
-      j = RCV[1,i]
-      #Since we have entries in RCV == 0, ensure those don't mess with tally.
-      if (j > 0) {
-        tally[j] = tally[j] + probs[i]
-      }
+      j <- RCV[1,i]
+      tally[j] <- tally[j] + probs[i]
     }
     
-    # While loop to do RCV candidate elimination.
+    # While loop to do RCV candidate elimination. The while condition ensures
+    # that no candidate has a majority support.
     while (all(tally < 0.5)) {
-      #Find the candidate with least votes for elimination
+      # Eliminate the candidate with least support
       # This uses an absolute value because we set previously eliminated
-      # candidates to "-2" temporarily to prevent counting them.
-      # Note m is an integer 1:c
+      # candidates to "-100" temporarily to prevent counting them.
+      # Note m is an integer 1:c, the candidate being eliminated
       m = which.min(abs(tally))
       
-      #Store the round results in rcvData
+      # Store the round results in rcvData. Convert back any "-100" in rcvData
+      # to "0" again, meaning candidates are eliminated.
       rcvData[roundNum, ,r] <- tally
-      rcvData[roundNum, ,r][rcvData[roundNum, ,r] == -2] <- 0
+      rcvData[roundNum, ,r][rcvData[roundNum, ,r] == -100] <- 0
       
-      #Track the round number for rcvData
+      # Update the round number for rcvData
       roundNum <- roundNum + 1
       
-      # Update indexer to skip the eliminated candidate when retallying
+      # Update elim matrix to skip the eliminated candidate when retallying
       for (i in 1:p) {
         index <- which(RCV[, i] == m)
-        elimTracker[index, i] <- .1
+        elimTracker[index, i] <- 1
       }
       
-      # Reset tally. Only nonzero values in loserTracker are for indexes of 
-      # eliminated candidates == -2. We update loserTracker with the newly 
-      # eliminated candidate and then reset tally to -2 for elim. candidates.
-      loserTracker[m] <- -2
+      # Reset entries of tally to equal zero except for those corresponidng to
+      # an eliminated candidate, which we set to -100. 
+      loserTracker[m] <- -100
       tally <- loserTracker
       
-      # Retally votes while skipping all eliminated candidates by finding
-      # the first entry in each column of elimtracker which isn't 0.1.
+      # Retally votes while skipping all eliminated candidates. 
       for (i in 1:p) {
+        # Find the index of the first zero entry in each column of elimtracker
         index <- match(0, elimTracker[, i])
-        # Add the if statement in case all candidates on a ballot are elim'd. 
+        # If this index exists, find the corresponding prob. in RCV and sum.
         if (!is.na(index)) {
           j <- RCV[index, i]
           tally[j] <- tally[j] + probs[i]
@@ -142,13 +149,14 @@ run_rcv = function(sample_probs, candidates) {
       }
       
       # Rescale each candidate's total probability of support to account for 
-      # decrease in total probability.
+      # decrease in total probability that occurs as all candidates on 
+      # incomplete rankings are eliminated. 
       rescale_factor <- sum(tally[tally>0])
       tally[tally>0] <- tally[tally>0]/rescale_factor
     }
     winner[r] = which.max(tally)
     rcvData[roundNum, ,r] <- tally
-    rcvData[roundNum, ,r][rcvData[roundNum, ,r] == -2] <- 0
+    rcvData[roundNum, ,r][rcvData[roundNum, ,r] == -100] <- 0
   }
   return(list(winner, rcvData))
 }
@@ -199,7 +207,7 @@ realWinner <- function(samplePopulation, candidates) {
 }
 
 # Function 8: preprocess dfp poll
-preprocess_dfp <- function(raw_data) {
+preprocess_dfp <- function(raw_data, weighted = 1) {
   #Weight and rankings per poll.
   ranking_cols <- c("weight",
                     "rank_preference_sure_1",
@@ -208,7 +216,12 @@ preprocess_dfp <- function(raw_data) {
                     "rank_preference_sure_4",
                     "rank_preference_sure_5")
   
-  dfp_rankings <- raw_data[, ranking_cols]
+  if (weighted == 1) {
+    dfp_rankings <- raw_data[, ranking_cols]
+  } else {
+    dfp_rankings <- raw_data[, ranking_cols]
+    dfp_rankings[, "weight"] <- 1
+  }
   
   # convert names to numeric following candidate_names mapping
   dfp_rankings_numeric <- dfp_rankings %>%
@@ -223,9 +236,12 @@ preprocess_dfp <- function(raw_data) {
   # check how many unique rankings there are
   n_distinct(dfp_rankings_numeric$combined_rankings, na.rm = TRUE)
   
+  # I THINK THE ERROR MIGHT BE HERE?
   # Sum the weights corresponding to unique rankings.
   weighted_sum_rankings <- dfp_rankings_numeric %>%
+    # Ignore blank rankings (shows up as NA on combined)
     filter(!is.na(combined_rankings)) %>%
+    # 
     group_by(combined_rankings) %>%
     summarise(total = sum(weight, na.rm = TRUE))
   
