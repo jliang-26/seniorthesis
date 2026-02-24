@@ -1,12 +1,11 @@
 source("constants.R")
 source("helperFunctions.R")
 
-# Adding weights vs adding 1.
-# My data output: named list of all 500 runs, transpose rows sand columns.
+# To do: named list of all 500 runs, transpose rows sand columns.
 
 raw_data <- read.csv("Datasets/dfp_nyc_pre_election_2021_final_v2_e5_0020040_micro.csv")
 
-posterior <- preprocess_dfp(raw_data)
+posterior <- preprocess_dfp(raw_data, weighted = 1)
 
 # Probs is a 500 x 807 matrix. Each row corresponds to one sample of 
 # probabilities from the Dirichlet posterior given the 807 unique rankings

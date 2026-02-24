@@ -1,10 +1,10 @@
 library(combinat)
 library(MCMCpack)
 
-####  NOTE: IN ROUND 5, CANDIDATE 2 TAKES THE LEAD!!! ####
-#### call rcvData[1:7,,1] ####
-
 ex_RCV <- rcvData[1:7,,1]
+
+sample_probs <- probs
+candidates <- 1:8
 
 # Function 4: Simulates RCV.
 run_rcv = function(sample_probs, candidates) {

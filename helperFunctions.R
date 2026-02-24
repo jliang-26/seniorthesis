@@ -2,6 +2,7 @@ set.seed(67)
 library(MCMCpack)
 library(combinat)
 library(dplyr)
+library(tidyverse)
 source("constants.R")
 
 # Function 1: draw sample_size rankings from samplePopulation
@@ -207,7 +208,7 @@ realWinner <- function(samplePopulation, candidates) {
 }
 
 # Function 8: preprocess dfp poll
-preprocess_dfp <- function(raw_data, weighted = 1) {
+preprocess_dfp <- function(raw_data, weighted = 1, prior = 0.0001) {
   #Weight and rankings per poll.
   ranking_cols <- c("weight",
                     "rank_preference_sure_1",
@@ -250,7 +251,8 @@ preprocess_dfp <- function(raw_data, weighted = 1) {
     filter(total != 0)
   
   # Compute the Dirichlet posterior
-  posterior <- culled_weighted_sum_rankings$total + 1
+  posterior <- culled_weighted_sum_rankings$total + prior
   names(posterior) <- culled_weighted_sum_rankings$combined_rankings
   return(posterior)
 }
+
