@@ -1,4 +1,5 @@
 set.seed(67)
+library(gtools)
 library(MCMCpack)
 library(combinat)
 library(dplyr)
@@ -237,7 +238,6 @@ preprocess_dfp <- function(raw_data, weighted = 1, prior = 0.0001) {
   # check how many unique rankings there are
   n_distinct(dfp_rankings_numeric$combined_rankings, na.rm = TRUE)
   
-  # I THINK THE ERROR MIGHT BE HERE?
   # Sum the weights corresponding to unique rankings.
   weighted_sum_rankings <- dfp_rankings_numeric %>%
     # Ignore blank rankings (shows up as NA on combined)
@@ -256,3 +256,70 @@ preprocess_dfp <- function(raw_data, weighted = 1, prior = 0.0001) {
   return(posterior)
 }
 
+# Function 9 DFP Manhattan Borough President Poll
+preprocess_mbp_dfp <- function(raw_data, weighted = 1) {
+  
+  relCols <- c("weight", grep("manhattan_bp", names(raw_data), value = TRUE))
+  
+  if (weighted == 1) {
+    dfp_mbp_rankings <- raw_data[, relCols]
+  } else {
+    dfp_mbp_rankings <- raw_data[, relCols]
+    dfp_mbp_rankings[, "weight"] <- 1
+  }
+  
+  # Drop empty/irrelevant ballots if they didn't rank any manhattan BP Qs.
+  dfp_mbp_rankings <- dfp_mbp_rankings[rowSums(dfp_mbp_rankings[, -1] != "") > 0, ]  
+  
+  # Combine voted and poll for second_choice and third_choice
+  dfp_mbp_rankings$combined_second_choice <- ifelse(!is.na(dfp_mbp_rankings$dfp_nyc_manhattan_bp_ballot_second_choice_voted), 
+                                                    dfp_mbp_rankings$dfp_nyc_manhattan_bp_ballot_second_choice_voted, 
+                                                    dfp_mbp_rankings$dfp_nyc_manhattan_bp_ballot_second_choice)
+  dfp_mbp_rankings$combined_third_choice <- ifelse(!is.na(dfp_mbp_rankings$dfp_nyc_manhattan_bp_ballot_third_choice_voted), 
+                                                   dfp_mbp_rankings$dfp_nyc_manhattan_bp_ballot_third_choice_voted, 
+                                                   dfp_mbp_rankings$dfp_nyc_manhattan_bp_ballot_third_choice)
+  # Remove "No one" from second and third choices.
+  dfp_mbp_rankings <- dfp_mbp_rankings %>%
+    mutate(across(c(combined_second_choice, combined_third_choice),
+                  ~ ifelse(. == "No one", "", .)))
+  
+  # treat manhattan_bp_sure, combined_second_choice, and combined_third_choice 
+  # as the first, second, and third-choice rankings. 
+  dfp_mbp_rankings <- dfp_mbp_rankings[, c("weight",
+                                           "manhattan_bp_sure", 
+                                           "combined_second_choice",
+                                           "combined_third_choice")]
+  
+  # Get a mapping of integers to unique candidate names.
+  names_list <- unique(unlist(dfp_mbp_rankings[, c("manhattan_bp_sure", 
+                                                   "combined_second_choice",
+                                                   "combined_third_choice")]))
+  names_list <- names_list[names_list != ""]
+  mbp_candidate_names <- setNames(seq_along(names_list), names_list)
+  
+  # convert names to numeric following candidate_names mapping
+  dfp_mbp_rankings_numeric <- dfp_mbp_rankings %>%
+    mutate(across(where(is.character), ~ unname(mbp_candidate_names[.x])))
+  
+  # Combine the numeric rankings and make blank rankings NA
+  dfp_mbp_rankings_numeric$combined_rankings <- apply(dfp_mbp_rankings_numeric[, 2:4], 1, function(row)
+    paste(row[!is.na(row)], collapse = "-")
+  )
+  dfp_mbp_rankings_numeric$combined_rankings[dfp_mbp_rankings_numeric$combined_rankings == ""] <- NA
+  
+  # Sum the weights corresponding to unique rankings.
+  weighted_sum_rankings <- dfp_mbp_rankings_numeric %>%
+    # Ignore blank rankings (shows up as NA on combined)
+    filter(!is.na(combined_rankings)) %>%
+    # 
+    group_by(combined_rankings) %>%
+    summarise(total = sum(weight, na.rm = TRUE))
+  
+  # Remove weighted sums equal to zero.
+  culled_weighted_sum_rankings <- weighted_sum_rankings %>% 
+    filter(total != 0)
+  sorted_weighted_rankings <- culled_weighted_sum_rankings %>%
+    arrange(desc(total))
+  output <- list(sorted_weighted_rankings, mbp_candidate_names)
+  return(output)
+}
