@@ -62,7 +62,7 @@ run_rcv = function(sample_probs, candidates) {
   winner = rep(NA, n)
   
   # Create the c x p Rankings Matrix which vectorizes each unique ranking
-  # from sample_probsl. Empty spots on a ranking are stored as zeroes.
+  # from sample_probs. Empty spots on a ranking are stored as zeroes.
   orderings <- colnames(sample_probs)
   
   split_rankings <- strsplit(orderings, "-")
@@ -122,6 +122,7 @@ run_rcv = function(sample_probs, candidates) {
       
       # Store the round results in rcvData. Convert back any "-100" in rcvData
       # to "0" again, meaning candidates are eliminated.
+      
       rcvData[roundNum, ,r] <- tally
       rcvData[roundNum, ,r][rcvData[roundNum, ,r] == -100] <- 0
       
@@ -258,18 +259,28 @@ preprocess_dfp <- function(raw_data, weighted = 1, prior = 0.0001) {
 
 # Function 9 DFP Manhattan Borough President Poll
 preprocess_mbp_dfp <- function(raw_data, weighted = 1) {
-  
-  relCols <- c("weight", grep("manhattan_bp", names(raw_data), value = TRUE))
+
+  # Try dfp_weight_nyc_manhattan_da_2021_revised_standard_sms_only_v3
+  # or dfp_weight_nyc_manhattan_da_2021_standard_sms_only
+  relCols <- c("dfp_weight_nyc_manhattan_da_2021_standard_sms_only", 
+               grep("manhattan_bp", names(raw_data), value = TRUE))
   
   if (weighted == 1) {
     dfp_mbp_rankings <- raw_data[, relCols]
+    dfp_mbp_rankings <- dfp_mbp_rankings %>%
+      rename(weight = dfp_weight_nyc_manhattan_da_2021_standard_sms_only)
   } else {
     dfp_mbp_rankings <- raw_data[, relCols]
+    dfp_mbp_rankings <- dfp_mbp_rankings %>%
+      rename(weight = dfp_weight_nyc_manhattan_da_2021_standard_sms_only)
     dfp_mbp_rankings[, "weight"] <- 1
   }
   
   # Drop empty/irrelevant ballots if they didn't rank any manhattan BP Qs.
-  dfp_mbp_rankings <- dfp_mbp_rankings[rowSums(dfp_mbp_rankings[, -1] != "") > 0, ]  
+  dfp_mbp_rankings <- dfp_mbp_rankings[rowSums(dfp_mbp_rankings[, -1] != "") > 0, ] 
+  
+  # Drop the ballots with zero weight
+  dfp_mbp_rankings <- dfp_mbp_rankings[dfp_mbp_rankings$weight > 0,]
   
   # Combine voted and poll for second_choice and third_choice
   dfp_mbp_rankings$combined_second_choice <- ifelse(!is.na(dfp_mbp_rankings$dfp_nyc_manhattan_bp_ballot_second_choice_voted), 
@@ -306,7 +317,11 @@ preprocess_mbp_dfp <- function(raw_data, weighted = 1) {
     paste(row[!is.na(row)], collapse = "-")
   )
   dfp_mbp_rankings_numeric$combined_rankings[dfp_mbp_rankings_numeric$combined_rankings == ""] <- NA
-  
+  output <- list(dfp_mbp_rankings_numeric, mbp_candidate_names)
+  return(output)
+}
+
+aggregate_mbp_rankings <- function(dfp_mbp_rankings_numeric) {
   # Sum the weights corresponding to unique rankings.
   weighted_sum_rankings <- dfp_mbp_rankings_numeric %>%
     # Ignore blank rankings (shows up as NA on combined)
@@ -318,8 +333,8 @@ preprocess_mbp_dfp <- function(raw_data, weighted = 1) {
   # Remove weighted sums equal to zero.
   culled_weighted_sum_rankings <- weighted_sum_rankings %>% 
     filter(total != 0)
+  # Sort by largest to smallest weight
   sorted_weighted_rankings <- culled_weighted_sum_rankings %>%
     arrange(desc(total))
-  output <- list(sorted_weighted_rankings, mbp_candidate_names)
-  return(output)
+  sorted_weighted_rankings
 }

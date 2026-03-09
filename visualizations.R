@@ -32,17 +32,18 @@ cand_6 <- tab[,3]/500
 plot(x = priors, y = cand_2, col = 'blue',
      xlab = 'Prior Size',
      ylab = 'Win Percent',
-     main = 'Prior Size vs. Win Percent',
-     ylim = c(0,.6))
+     main = 'Prior Size vs. Win Percent (Corrected Weights)',
+     ylim = c(0,1))
 model2 <- lm(cand_2 ~ priors)
 abline(model2, col = 'blue')
-points(x = priors, y = cand_3, col = 'red')
+points(x = priors, y = cand_3, col = 'green')
 model3 <- lm(cand_3 ~ priors)
-abline(model3, col = 'red')
-points(x = priors, y = cand_6, col = 'green')
+abline(model3, col = 'green')
+points(x = priors, y = cand_6, col = 'red')
 model6 <- lm(cand_6 ~ priors)
-abline(model, col = 'green')
+abline(model6, col = 'red')
 legend('center', 
        legend = c('Levine', 'Hoylman', 'Kallos'),
        col = c('blue', 'red', 'green'),
        lty = 1)
+
