@@ -162,6 +162,8 @@ run_rcv = function(sample_probs, candidates) {
     rcvData[roundNum, ,r][rcvData[roundNum, ,r] == -100] <- 0
   }
   return(list(winner, rcvData))
+  #return(list(winner, rcvData[nrow(rcvData[,,]),,]))
+  # winner
 }
 
 #Function 5: extract rcv data.
@@ -210,15 +212,34 @@ realWinner <- function(samplePopulation, candidates) {
 }
 
 # Function 8: preprocess dfp poll
-preprocess_dfp <- function(raw_data, weighted = 1, prior = 0.0001) {
+preprocess_dfp <- function(raw_data,
+                           race = "mayor",
+                           weighted = 1, 
+                           prune = FALSE,
+                           candidates = NA,
+                           prior = 0.15) {
   #Weight and rankings per poll.
-  ranking_cols <- c("weight",
-                    "rank_preference_sure_1",
-                    "rank_preference_sure_2",
-                    "rank_preference_sure_3",
-                    "rank_preference_sure_4",
-                    "rank_preference_sure_5")
-  
+  if (race == "mayor") {
+    ranking_cols <- c("weight",
+                      "rank_preference_sure_1",
+                      "rank_preference_sure_2",
+                      "rank_preference_sure_3",
+                      "rank_preference_sure_4",
+                      "rank_preference_sure_5")
+    names <- candidate_names
+  } else if (race == "comptroller") {
+    ranking_cols <- c("weight",
+                      "comptroller_rank_preference_sure_1",
+                      "comptroller_rank_preference_sure_2",
+                      "comptroller_rank_preference_sure_3",
+                      "comptroller_rank_preference_sure_4",
+                      "comptroller_rank_preference_sure_5"
+    )
+    names <- comptroller_names
+  }
+
+  # whether or not to use poll weights.
+  raw_data <- dfp_raw_data
   if (weighted == 1) {
     dfp_rankings <- raw_data[, ranking_cols]
   } else {
@@ -226,18 +247,24 @@ preprocess_dfp <- function(raw_data, weighted = 1, prior = 0.0001) {
     dfp_rankings[, "weight"] <- 1
   }
   
-  # convert names to numeric following candidate_names mapping
-  dfp_rankings_numeric <- dfp_rankings %>%
-    mutate(across(where(is.character), ~ unname(candidate_names[.x])))
+  # prune candidates if prune == TRUE.
+  if (prune == TRUE) {
+    dfp_rankings <- dfp_rankings %>%
+      mutate(across(-1, ~ replace(.x, !(.x %in% candidates), "")))
+  }
   
-  # Combine the numeric rankings and make blank rankings NA
+  # convert names to numeric following names mapping
+  dfp_rankings_numeric <- dfp_rankings %>%
+    mutate(across(where(is.character), ~ unname(names[.x])))
+  
+  # Combine the numeric rankings and make fully blank rankings NA
   dfp_rankings_numeric$combined_rankings <- apply(dfp_rankings_numeric[, 2:6], 1, function(row)
     paste(row[!is.na(row)], collapse = "-")
   )
   dfp_rankings_numeric$combined_rankings[dfp_rankings_numeric$combined_rankings == ""] <- NA
-  
+  colnames(dfp_rankings_numeric)[1]  = "weight"
   # check how many unique rankings there are
-  n_distinct(dfp_rankings_numeric$combined_rankings, na.rm = TRUE)
+  # n_distinct(dfp_rankings_numeric$combined_rankings, na.rm = TRUE)
   
   # Sum the weights corresponding to unique rankings.
   weighted_sum_rankings <- dfp_rankings_numeric %>%
@@ -258,8 +285,12 @@ preprocess_dfp <- function(raw_data, weighted = 1, prior = 0.0001) {
 }
 
 # Function 9 DFP Manhattan Borough President Poll
-preprocess_mbp_dfp <- function(raw_data, weighted = 1) {
-
+preprocess_mbp_dfp <- function(raw_data, 
+                               weighted = 1,
+                               prune = FALSE,
+                               candidates = NA
+                               ) {
+  
   # Try dfp_weight_nyc_manhattan_da_2021_revised_standard_sms_only_v3
   # or dfp_weight_nyc_manhattan_da_2021_standard_sms_only
   relCols <- c("dfp_weight_nyc_manhattan_da_2021_standard_sms_only", 
@@ -274,6 +305,12 @@ preprocess_mbp_dfp <- function(raw_data, weighted = 1) {
     dfp_mbp_rankings <- dfp_mbp_rankings %>%
       rename(weight = dfp_weight_nyc_manhattan_da_2021_standard_sms_only)
     dfp_mbp_rankings[, "weight"] <- 1
+  }
+  
+  # prune candidates if prune == TRUE.
+  if (prune == TRUE) {
+    dfp_mbp_rankings <- dfp_mbp_rankings %>%
+      mutate(across(-1, ~ replace(.x, !(.x %in% candidates), "")))
   }
   
   # Drop empty/irrelevant ballots if they didn't rank any manhattan BP Qs.
@@ -301,40 +338,94 @@ preprocess_mbp_dfp <- function(raw_data, weighted = 1) {
                                            "combined_second_choice",
                                            "combined_third_choice")]
   
-  # Get a mapping of integers to unique candidate names.
-  names_list <- unique(unlist(dfp_mbp_rankings[, c("manhattan_bp_sure", 
-                                                   "combined_second_choice",
-                                                   "combined_third_choice")]))
-  names_list <- names_list[names_list != ""]
-  mbp_candidate_names <- setNames(seq_along(names_list), names_list)
-  
   # convert names to numeric following candidate_names mapping
   dfp_mbp_rankings_numeric <- dfp_mbp_rankings %>%
-    mutate(across(where(is.character), ~ unname(mbp_candidate_names[.x])))
+    mutate(across(where(is.character), ~ unname(mbp_candidates[.x])))
   
   # Combine the numeric rankings and make blank rankings NA
   dfp_mbp_rankings_numeric$combined_rankings <- apply(dfp_mbp_rankings_numeric[, 2:4], 1, function(row)
     paste(row[!is.na(row)], collapse = "-")
   )
   dfp_mbp_rankings_numeric$combined_rankings[dfp_mbp_rankings_numeric$combined_rankings == ""] <- NA
-  output <- list(dfp_mbp_rankings_numeric, mbp_candidate_names)
-  return(output)
+  dfp_mbp_rankings_numeric
 }
 
-aggregate_mbp_rankings <- function(dfp_mbp_rankings_numeric) {
+# Function 9b
+aggregate_mbp_rankings <- function(dfp_mbp_rankings_numeric,
+                                   prior = 0) {
   # Sum the weights corresponding to unique rankings.
   weighted_sum_rankings <- dfp_mbp_rankings_numeric %>%
     # Ignore blank rankings (shows up as NA on combined)
     filter(!is.na(combined_rankings)) %>%
-    # 
+    #
     group_by(combined_rankings) %>%
-    summarise(total = sum(weight, na.rm = TRUE))
-  
-  # Remove weighted sums equal to zero.
-  culled_weighted_sum_rankings <- weighted_sum_rankings %>% 
-    filter(total != 0)
-  # Sort by largest to smallest weight
-  sorted_weighted_rankings <- culled_weighted_sum_rankings %>%
-    arrange(desc(total))
-  sorted_weighted_rankings
+    summarise(total = sum(weight, na.rm = TRUE)) %>%
+    # Remove weighted sums equal to zero.
+    filter(total != 0) %>%
+    # Sort by largest to smallest weight to visualize
+    arrange(desc(total)) %>%
+    # Add the prior
+    mutate(total = total + prior)
+  weighted_sum_rankings
 }
+
+# Function 10: preprocess primary ballots
+preprocess_primary <- function(raw_data,
+                           prune = FALSE,
+                           candidates = NA) {
+  
+  # prune candidates if prune == TRUE.
+  if (prune == TRUE) {
+    raw_data <- raw_data %>%
+      mutate(across(-1, ~ replace(.x, !(.x %in% candidates), "")))
+  }
+  
+  # convert names to numeric following primary_candidates mapping
+  data_numeric <- raw_data[,-1] %>%
+    mutate(across(where(is.character), ~ unname(primary_candidates[.x])))
+  
+  # If the same candidate is listed multiple times, only keep the first 
+  # occurrence and make other rankings of that candidate NA
+  data_numeric <- t(apply(data_numeric, 1, FUN = function(row) {
+    row[duplicated(row)] <- NA
+    row
+  }))
+
+  # Combine the numeric rankings and make fully blank rankings NA
+  combined_rankings <- apply(data_numeric, 1, function(row) {
+    paste(row[!is.na(row)], collapse = "-")
+  })
+  
+  data_numeric <- cbind(data_numeric, combined_rankings)
+  
+  # Convert back to a data frame from matrix.
+  data_numeric <- as.data.frame(data_numeric)
+  
+  # check how many unique rankings there are
+  # n_distinct(data_numeric$combined_rankings, na.rm = TRUE)
+  
+  data_numeric
+}
+
+# Function 10b: Compute posterior of real ballots
+# Compute the Dirichlet posterior
+# Maybe move this into another function
+realPosterior <- function(data_numeric, prior = 0) {
+  
+  # Sum the ballots corresponding to unique rankings.
+  sum_rankings <- data_numeric %>%
+    # Blank rankings show up as "" on combined rankings
+    # filter(!is.na(combined_rankings)) %>%
+    filter(combined_rankings != "") %>%
+    count(combined_rankings, name = "total") %>%
+    arrange(desc(total))
+  
+  posterior <- sum_rankings$total + prior
+  names(posterior) <- sum_rankings$combined_rankings
+  
+  posterior
+}
+
+# Function 11: determine pruning list of a poll
+
+# First, get a hypothetical sample poll.

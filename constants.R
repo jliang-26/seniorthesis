@@ -11,7 +11,7 @@ pollCount = 500
 probs_size = 500
 
 #The number of candidates and a list of candidates
-candidatesNum = 8
+candidatesNum = 14
 candidates <- 1:candidatesNum
 
 #The simple support for each candidate. Length must match candidatesNum.
@@ -26,7 +26,8 @@ candidate_names <- c(
   "Scott Stringer" = 5,
   "Dianne Morales" = 6,
   "Ray McGuire" = 7,
-  "Shaun Donovan" = 8
+  "Shaun Donovan" = 8,
+  "A different candidate" = 9
 )
 
 # For real primary results
@@ -43,6 +44,28 @@ primary_candidates <- c(
   "Paperboy Love Prince" = 10,
   "Joycelyn Taylor" = 11,
   "Aaron S. Foldenauer" = 12,
-  "Isaac Wright Jr." = 13
+  "Isaac Wright Jr." = 13,
+  "Write-in" = 14
 )
 
+# For manhattan bp:
+mbp_candidates <- c(
+"Mark Levine" = 1, 
+"Brad Hoylman" = 2, 
+"Elizabeth Caputo" = 3,
+"Benjamin Kallos" = 4,
+"Lindsey Boylan" = 5,
+"Kimberly Watkins" = 6 
+)
+
+# For comptroller
+comptroller_names <- c("Brian Benjamin" = 6, 
+                       "Brad Lander" = 1, 
+                       "Kevin Parker" = 5, 
+                       "Reshma Patel" = 8, 
+                       "Terri Liftin" = 9, 
+                       "Zach Iscol" = 7, 
+                       "Corey Johnson" = 2, 
+                       "Michelle Caruso-Cabrera" = 3, 
+                       "David Weprin" = 4) 
+sorted_comp <- names(sort(comptroller_names))

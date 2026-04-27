@@ -1,6 +1,10 @@
 source("constants.R")
 source("helperFunctions.R")
 
+###############################################################################
+####################### Simulating a population ###############################
+###############################################################################
+
 #Step one: Generate a simple population of size 100k and compute real winner.
 samplePopulation <- sapply(1:populationSize, function(i) {
   sample(candidates, size = length(candidates), replace = FALSE, prob = support)
@@ -34,3 +38,6 @@ allWins <- winPercents(rcvOutputs)[[2]]
 #for the entire simulation. roundInfo[[k][i,,j] gives the candidate votes for 
 #the ith round of the jth sample of the kth poll.
 roundInfo <- lapply(rcvOutputs, function(x) x[[2]])
+###############################################################################
+###############################################################################
+
