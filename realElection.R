@@ -14,8 +14,13 @@ cands <- c("Eric L. Adams",
            "Kathryn A. Garcia")
 
 # Compare real RCV results, pruning and not pruning.
-data_numeric <- preprocess_primary(raw_data = primary_ballots)
+data_numeric <- preprocess_primary(raw_data = primary_ballots,
+                                   prune = TRUE,
+                                   candidates = cands)
 posterior <- realPosterior(data_numeric)
+probs <- sample_probs(probs_size = 500, posterior = posterior)
+results <- run_rcv(probs, 1:3)
+
 post_probs <- t(as.matrix(posterior/sum(posterior)  ))                                     
 
 real_results <- run_rcv(post_probs, 1:14)
